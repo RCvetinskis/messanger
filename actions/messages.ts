@@ -2,6 +2,7 @@
 import { db } from "@/libs/prismaDb";
 import { getCurrentUser } from "@/libs/user-service";
 import { SendMessageType } from "@/types";
+import { pusherClient, pusherServer } from "@/libs/pusher";
 
 export const sendMessage = async (params: SendMessageType) => {
   try {
@@ -59,10 +60,24 @@ export const sendMessage = async (params: SendMessageType) => {
         },
       },
     });
+
+    // wesbcoket add new message in real time
+    await pusherServer.trigger(conversationId, "messages:new", newMessage);
+
+    const lastMessage =
+      updatedConversation.messages[updatedConversation.messages.length - 1];
+
+    updatedConversation.users.map((user) => {
+      pusherServer.trigger(user.email!, "conversation:update", {
+        id: conversationId,
+        messages: [lastMessage],
+      });
+    });
+
     return newMessage;
-  } catch {
-    console.log("Error in send messages");
-    return null;
+  } catch (error) {
+    console.log("ERROR IN SEND MESSAGE");
+    throw error;
   }
 };
 
@@ -118,9 +133,27 @@ export const setSeenMessages = async (conversationId: string) => {
         },
       },
     });
+
+    // Update all connections with new seen
+    await pusherServer.trigger(currentUser.email, "conversation:update", {
+      id: conversationId,
+      messages: [updatedMessage],
+    });
+
+    // If user has already seen the message, no need to go further
+    if (lastMessage.seenIds.indexOf(currentUser.id) !== -1) {
+      return conversation;
+    }
+
+    // Update last message seen
+    await pusherServer.trigger(
+      conversationId!,
+      "message:update",
+      updatedMessage
+    );
     return updatedMessage;
-  } catch {
-    console.log("Error in set messages seen");
-    return null;
+  } catch (error) {
+    console.log("ERROR IN CREATE SETSEENMESSAGES");
+    throw error;
   }
 };

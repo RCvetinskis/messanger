@@ -1,7 +1,7 @@
 import { Conversation, Message, User } from "@prisma/client";
 
 export type CreateConversationProps = {
-  userId: string;
+  userId?: string;
   isGroup?: boolean;
   members?: { value: string }[];
   name?: string;
