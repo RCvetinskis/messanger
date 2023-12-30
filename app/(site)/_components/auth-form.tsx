@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useTransition } from "react";
 import { FieldValues, SubmitHandler, useForm } from "react-hook-form";
 import { BsGithub, BsGoogle } from "react-icons/bs";
 import { AuthSocialButton } from "./auth-social-btn";
-import axios from "axios";
 import toast from "react-hot-toast";
+import axios from "axios";
 
 import { signIn, useSession } from "next-auth/react";
 import { Input } from "@/components/inputs/input";
@@ -19,7 +19,8 @@ export const AuthForm = () => {
   const router = useRouter();
 
   const [variant, setVariant] = useState<Variant>("LOGIN");
-  const [isLoading, setIsLoading] = useState(false);
+
+  const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
     if (session?.status === "authenticated") {
@@ -47,59 +48,56 @@ export const AuthForm = () => {
     },
   });
 
-  const onSubmit: SubmitHandler<FieldValues> = async (data) => {
-    setIsLoading(true);
-
+  const onSubmit: SubmitHandler<FieldValues> = (data) => {
     try {
       if (variant === "REGISTER") {
-        const res = await axios.post("/api/register", data);
-        if (res && res.status === 200) {
-          await signIn("credentials", {
-            ...data,
-            redirect: false,
-          });
-        }
+        startTransition(async () => {
+          const res = await axios.post("/api/register", data);
+          if (res && res.status === 200) {
+            await signIn("credentials", {
+              ...data,
+              redirect: false,
+            });
+          }
+        });
       }
 
       if (variant === "LOGIN") {
-        const res = await signIn("credentials", {
-          ...data,
+        startTransition(async () => {
+          const res = await signIn("credentials", {
+            ...data,
+            redirect: false,
+          });
+
+          if (res?.error) {
+            toast.error("Invalid Credentials");
+          }
+          if (res?.ok && !res?.error) {
+            router.push("/users");
+          }
+        });
+      }
+    } catch (error) {
+      toast.error("Something went wrong");
+    }
+  };
+
+  const socialAction = (action: string) => {
+    startTransition(async () => {
+      try {
+        const res = await signIn(action, {
           redirect: false,
         });
-
         if (res?.error) {
           toast.error("Invalid Credentials");
         }
         if (res?.ok && !res?.error) {
-          router.push("/users");
+          toast.success("Logged in!");
         }
+      } catch (error) {
+        toast.error("Something went wrong");
       }
-    } catch (error) {
-      toast.error("Something went wrong");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const socialAction = async (action: string) => {
-    setIsLoading(true);
-    try {
-      const res = await signIn(action, {
-        redirect: false,
-      });
-      if (res?.error) {
-        toast.error("Invalid Credentials");
-      }
-      if (res?.ok && !res?.error) {
-        toast.success("Logged in!");
-      }
-    } catch (error) {
-      toast.error("Something went wrong");
-    } finally {
-      setIsLoading(false);
-    }
-
-    // nextauth social sigin
+    });
   };
   return (
     <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
@@ -111,7 +109,7 @@ export const AuthForm = () => {
               label="name"
               register={register}
               errors={errors}
-              disabled={isLoading}
+              disabled={isPending}
             />
           )}
 
@@ -121,7 +119,7 @@ export const AuthForm = () => {
             type="email"
             register={register}
             errors={errors}
-            disabled={isLoading}
+            disabled={isPending}
           />
           <Input
             id="password"
@@ -129,10 +127,10 @@ export const AuthForm = () => {
             type="password"
             register={register}
             errors={errors}
-            disabled={isLoading}
+            disabled={isPending}
           />
           <div>
-            <Button disabled={isLoading} fullWidth type="submit">
+            <Button disabled={isPending} fullWidth type="submit">
               {variant === "LOGIN" ? "Sign in" : "Register"}
             </Button>
           </div>
