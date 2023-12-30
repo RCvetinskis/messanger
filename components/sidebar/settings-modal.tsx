@@ -15,7 +15,7 @@ import { onUpdateUser } from "@/actions/user";
 interface SettingsModalProps {
   isOpen?: boolean;
   onClose: () => void;
-  currentUser: User;
+  currentUser: User | null;
 }
 
 export const SettingsModal = ({

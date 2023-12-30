@@ -8,7 +8,7 @@ import { DesktopItem } from "./desktop-item";
 import { Avatar } from "../avatar";
 import { SettingsModal } from "./settings-modal";
 interface DesktopSidebarProps {
-  currentUser: User;
+  currentUser: User | null;
 }
 export const DesktopSidebar = ({ currentUser }: DesktopSidebarProps) => {
   const routes = useRoutes();
